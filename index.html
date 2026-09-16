@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PULL & WIN — BY UNYU | Original Game</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0e091b;color:#fff;font-family:Arial,Helvetica,sans-serif}
+button,input{font:inherit}.wrap{max-width:1100px;margin:auto;padding:20px}.brand{text-align:center;padding:12px 0 18px}.brand h1{margin:0;font-size:42px}.brand p{margin:6px 0 0;letter-spacing:5px;opacity:.7}
+.nav{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:16px}.nav button,.primary,.secondary{border:0;border-radius:12px;padding:12px 18px;cursor:pointer;font-weight:800}.nav button{background:#28203d;color:#fff}.nav button.active,.primary{background:#7c3aed;color:#fff}.secondary{background:#302745;color:#fff}
+.card{background:#19132c;border:1px solid #332852;border-radius:18px;padding:18px;margin-bottom:14px}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}input{background:#0e091b;color:#fff;border:1px solid #493d68;border-radius:10px;padding:12px;min-width:160px}
+.status{font-size:13px;opacity:.75}.score{display:flex;gap:12px;align-items:center}.team{flex:1;text-align:center;background:#241b3c;border-radius:18px;padding:18px}.team h2{margin:0;font-size:22px}.num{font-size:64px;font-weight:900}.rope{flex:1;min-width:120px}.line{height:12px;background:#d7b486;border-radius:20px;position:relative}.knot{position:absolute;left:50%;top:-25px;font-size:42px;transform:translateX(-50%);transition:.35s}
+.q{text-align:center}.q .small{letter-spacing:4px;opacity:.6}.q h2{font-size:48px;margin:12px}.answers{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:700px;margin:auto}.answer{border:3px solid #ffffff !important;border-radius:14px;padding:18px;font-size:30px;font-weight:900;cursor:pointer;background:#ffffff !important;color:#111111 !important;opacity:1 !important;appearance:none;-webkit-appearance:none;color-scheme:light;box-shadow:0 2px 0 rgba(0,0,0,.18)}.answer:disabled{opacity:1 !important;background:#ffffff !important;color:#111111 !important;border-color:#ffffff !important;cursor:not-allowed}
+.players{display:grid;grid-template-columns:1fr 1fr;gap:12px}.list{background:#21183a;border-radius:14px;padding:12px;min-height:70px}.p{padding:8px 4px;border-bottom:1px solid #ffffff12}.winner{text-align:center;font-size:32px;font-weight:900}
+.hidden{display:none!important}.err{color:#ff9e9e}.ok{color:#9dffba}
+@media(max-width:650px){.brand h1{font-size:34px}.num{font-size:48px}.q h2{font-size:38px}.answers{grid-template-columns:1fr}.players{grid-template-columns:1fr}}
+
+/* Celebration overlays */
+#eventOverlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
+  padding:24px;background:rgba(8,4,18,.78);backdrop-filter:blur(6px);opacity:0;pointer-events:none;
+  transition:opacity .18s ease}
+#eventOverlay.show{opacity:1}
+#eventOverlay .eventBox{width:min(92vw,760px);text-align:center;border:2px solid #ffffff30;
+  border-radius:28px;padding:34px 24px;background:#1a1230;box-shadow:0 24px 80px #0008;
+  transform:scale(.82);transition:transform .22s cubic-bezier(.2,.9,.2,1)}
+#eventOverlay.show .eventBox{transform:scale(1)}
+#eventTitle{font-size:clamp(38px,9vw,82px);font-weight:1000;line-height:1.02;margin:0}
+#eventSub{font-size:clamp(20px,4vw,34px);font-weight:900;margin:14px 0 0}
+#eventScore{font-size:clamp(18px,3vw,28px);opacity:.9;margin-top:10px}
+#soundBtn{min-width:145px}
+.scorePulse{animation:scorePulse .45s ease}
+@keyframes scorePulse{50%{transform:scale(1.16)}}
+.winner.show{animation:winnerPulse .8s ease infinite alternate}
+@keyframes winnerPulse{to{transform:scale(1.04)}}
+
+</style>
+</head>
+<body>
+<div id="eventOverlay" aria-live="assertive">
+  <div class="eventBox">
+    <div id="eventTitle">🪢 PULL &amp; WIN</div>
+    <div id="eventSub"></div>
+    <div id="eventScore"></div>
+  </div>
+</div>
+<div class="wrap">
+  <div class="brand"><h1>🪢 PULL &amp; WIN</h1><p>BY UNYU</p></div>
+  <div class="nav">
+    <button id="hostTab" class="active">HOST</button>
+    <button id="playerTab">PLAYER</button>
+    <button id="obsTab">OBS</button>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label>Room <input id="room" value="TAL101" maxlength="12"></label>
+      <span id="conn" class="status">Connecting…</span>
+    </div>
+  </div>
+
+  <section id="hostView">
+    <div class="card">
+      <div class="row">
+        <label class="durationLabel">GAME DURATION
+          <select id="gameDuration">
+            <option value="180">3 MINUTES</option>
+            <option value="300">5 MINUTES</option>
+          </select>
+        </label>
+        <button class="primary" id="startBtn">START GAME / NEXT TURN</button>
+<div class="status" style="text-align:center;font-weight:800">⚡ AUTO-NEXT: ON</div>
+        <button class="secondary" id="testNadyaBtn">TEST NADYA TURN</button>
+        <button class="secondary" id="resetBtn">RESET GAME</button>
+<button class="secondary" id="soundBtn">🔊 SOUND ON</button>
+      </div>
+      <p id="hostMsg" class="status"></p>
+    </div>
+  </section>
+
+  <section id="playerView" class="hidden">
+    <div class="card">
+      <div class="row">
+        <select id="playerSelect"><option value="">Select your test player…</option></select>
+        <input id="playerName" placeholder="New player name">
+        <button class="primary" id="joinBtn">JOIN NEW PLAYER</button>
+        <button class="secondary" id="useBtn">USE SELECTED PLAYER</button>
+        <button class="secondary" id="refreshBtn">REFRESH STATE</button>
+      </div>
+      <p id="playerMsg" class="status"></p><p id="identity" class="status"></p><div id="debug" class="status"></div>
+        <div id="resultBanner" class="status" style="font-size:20px;font-weight:900;margin-top:8px"></div>
+    </div>
+  </section>
+
+  <div id="matchTimer" class="status" style="text-align:center;font-size:24px;font-weight:900;margin:12px 0">MATCH TIME --:--</div>
+  <div class="card">
+    <div class="score">
+      <div class="team"><h2>🔴 RED</h2><div class="num" id="red">0</div></div>
+      <div class="rope">
+        <div class="line"><span id="knot" class="knot">🪢</span></div>
+        <div id="ropeStatus" class="status" style="text-align:center;margin-top:10px"></div>
+      </div>
+      <div class="team"><h2>BLUE 🔵</h2><div class="num" id="blue">0</div></div>
+    </div>
+  </div>
+
+  <div class="card q">
+    <div class="small">MATH BATTLE</div>
+    <h2 id="question">Waiting for host…</h2>
+    <div id="answers" class="answers"></div>
+    <p><b id="current">No active player</b> · <span id="timer">00:00</span></p>
+    <div id="winner" class="winner"></div>
+  </div>
+
+  <div class="card">
+    <div class="players">
+      <div class="list"><b>🔴 RED TEAM</b><div id="redPlayers"></div></div>
+      <div class="list"><b>🔵 BLUE TEAM</b><div id="bluePlayers"></div></div>
+    </div>
+  </div>
+
+  <section id="obsView" class="hidden">
+    <div class="card"><b>OBS MODE</b><p class="status">Use this page as a Browser Source. Room state updates automatically.</p></div>
+  </section>
+</div>
+
+
+<script>
+/* UNYU MODE ROUTER
+   One HTML file, three presentation modes:
+   host / player / obs.
+   Existing game logic remains unchanged; this only adds mode-aware helpers.
+*/
+(function(){
+  const qs=new URLSearchParams(location.search);
+  window.UNYU_MODE=(qs.get("mode")||"host").toLowerCase();
+  window.UNYU_ROOM=qs.get("room")||"TAL101";
+  document.documentElement.dataset.unyuMode=window.UNYU_MODE;
+  document.documentElement.dataset.unyuRoom=window.UNYU_ROOM;
+})();
+</script>
+<style>
+/* Presentation modes for the single shared HTML.
+   Host remains the normal full UI. */
+html[data-unyu-mode="obs"] body{background:transparent!important}
+html[data-unyu-mode="obs"] .host-only,
+html[data-unyu-mode="obs"] .player-only,
+html[data-unyu-mode="obs"] input,
+html[data-unyu-mode="obs"] button,
+html[data-unyu-mode="obs"] select,
+html[data-unyu-mode="obs"] textarea{display:none!important}
+html[data-unyu-mode="player"] .host-only{display:none!important}
+</style>
+<script>
+const SUPABASE_URL = "https://qdkelhlgdqnpvjiuekxo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_mdvJWAH9O_oY6yaFK8YR9A_CIpxc49n";
+const sb = supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+let roomCode="TAL101", room=null, players=[], me=null, timerHandle=null;
+let soundEnabled=true, audioCtx=null, previousScores=null, previousWinner=null, overlayTimer=null;
+
+function ensureAudio(){
+  if(!soundEnabled) return null;
+  try{
+    if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==="suspended") audioCtx.resume();
+    return audioCtx;
+  }catch(e){ return null; }
+}
+function tone(freq,duration=.12,type="sine",gain=.045,delay=0){
+  const ctx=ensureAudio(); if(!ctx)return;
+  const t=ctx.currentTime+delay;
+  const o=ctx.createOscillator(), g=ctx.createGain();
+  o.type=type; o.frequency.setValueAtTime(freq,t);
+  g.gain.setValueAtTime(.0001,t);
+  g.gain.exponentialRampToValueAtTime(gain,t+.015);
+  g.gain.exponentialRampToValueAtTime(.0001,t+duration);
+  o.connect(g).connect(ctx.destination); o.start(t); o.stop(t+duration+.02);
+}
+function playPointSound(direction){
+  // Short notification for every score movement.
+  if(direction>0){ tone(660,.09,"sine",.06,0); tone(880,.12,"sine",.05,.08); }
+  else { tone(330,.11,"triangle",.055,0); tone(220,.14,"triangle",.045,.09); }
+}
+function playFanfare(winner){
+  if(winner==="red"){
+    [523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(f,.20,"sine",.065,i*.12));
+  }else if(winner==="blue"){
+    [392,523.25,659.25,783.99].forEach((f,i)=>tone(f,.20,"sine",.065,i*.12));
+  }else{
+    [523.25,440,523.25].forEach((f,i)=>tone(f,.24,"triangle",.055,i*.16));
+  }
+}
+function showEvent(title,sub="",score="",kind="point"){
+  const ov=$("eventOverlay"), titleEl=$("eventTitle"), subEl=$("eventSub"), scoreEl=$("eventScore");
+  if(!ov)return;
+  titleEl.textContent=title; subEl.textContent=sub; scoreEl.textContent=score;
+  ov.dataset.kind=kind; ov.classList.add("show");
+  clearTimeout(overlayTimer);
+  overlayTimer=setTimeout(()=>ov.classList.remove("show"),kind==="winner"?6500:1100);
+}
+function handleGameAudioAndEvents(nextRoom){
+  const red=Number(nextRoom.red_score||0), blue=Number(nextRoom.blue_score||0);
+  if(previousScores){
+    const dr=red-previousScores.red, db=blue-previousScores.blue;
+    if(dr!==0){
+      const el=$("red"); el?.classList.add("scorePulse"); setTimeout(()=>el?.classList.remove("scorePulse"),500);
+      playPointSound(dr>0?1:-1);
+      showEvent(dr>0?"🔴 +1 POINT":"🔴 −1 POINT",
+        dr>0?"RED PULLS!":"RED LOST A POINT",
+        `RED ${red}  •  BLUE ${blue}`);
+    }
+    if(db!==0){
+      const el=$("blue"); el?.classList.add("scorePulse"); setTimeout(()=>el?.classList.remove("scorePulse"),500);
+      playPointSound(db>0?1:-1);
+      showEvent(db>0?"🔵 +1 POINT":"🔵 −1 POINT",
+        db>0?"BLUE PULLS!":"BLUE LOST A POINT",
+        `RED ${red}  •  BLUE ${blue}`);
+    }
+  }
+  const winner=(Number(nextRoom.match_deadline||0)>0 && Number(nextRoom.match_duration||0)>0 && nextRoom.match_started_at)
+    ? (nextRoom.winner||null) : null;
+  if(winner && winner!==previousWinner){
+    const label=String(winner).toUpperCase();
+    showEvent(`🏆 ${label} TEAM WINS!`,"TIME IS UP",
+      `RED ${red}  •  BLUE ${blue}`,"winner");
+    playFanfare(winner);
+  }else if(nextRoom.phase==="finished" && !winner && previousWinner===null && previousScores &&
+            Number(nextRoom.match_duration||0)>0 && nextRoom.match_started_at){
+    showEvent("⚖️ DRAW!","TIME IS UP",
+      `RED ${red}  •  BLUE ${blue}`,"winner");
+    playFanfare(null);
+  }
+  previousScores={red,blue};
+  previousWinner=winner;
+}
+
+try{const saved=JSON.parse(localStorage.getItem("pullwin_player")||"null"); if(saved?.room==="TAL101"&&saved?.id) me={id:saved.id,room_code:saved.room};}catch(e){}
+
+const $=id=>document.getElementById(id);
+function setMsg(id,msg,cls=""){ $(id).textContent=msg; $(id).className="status "+cls; }
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
+
+async function load(){
+  roomCode=$("room").value.trim().toUpperCase()||"TAL101";
+  const {data:r,error:re}=await sb.from("math_rooms").select("*").eq("code",roomCode).maybeSingle();
+  if(re){$("conn").textContent="DB error: "+re.message;return}
+  if(!r){$("conn").textContent="Room not found";return}
+  room=r;
+  const {data:p,error:pe}=await sb.from("math_players").select("*").eq("room_code",roomCode).order("queue_no");
+  if(pe){$("conn").textContent="Player read error: "+pe.message;return}
+  players=p||[];
+  if(me?.id && !players.some(x=>String(x.id)===String(me.id))) me=null;
+  const sel=$("playerSelect");
+  if(sel){
+    const keep=me?.id||sel.value||"";
+    sel.innerHTML='<option value="">Select your player…</option>'+
+      players.map(x=>`<option value="${x.id}">${escapeHtml(x.name)} · ${String(x.team).toUpperCase()} · #${x.queue_no}</option>`).join("");
+    if(keep) sel.value=keep;
+  }
+  $("conn").textContent="● Connected";
+  // Match winner is the team with the most points when the selected duration ends.
+  // Only end a match when it has actually been started and has a valid
+  // duration. A stale deadline from an older match must never create DRAW.
+  const matchIsActive = room.phase!=="finished" &&
+    Number(room.match_deadline||0)>0 &&
+    Number(room.match_duration||0)>0 &&
+    !!room.match_started_at;
+  if(matchIsActive && Date.now()>=Number(room.match_deadline) && room.phase!=="finished"){
+    const winner = Number(room.red_score||0)>Number(room.blue_score||0) ? "red"
+                 : Number(room.blue_score||0)>Number(room.red_score||0) ? "blue" : null;
+    await sb.from("math_rooms").update({
+      phase:"finished", current_player:null, deadline:0, winner
+    }).eq("code",roomCode);
+    room.phase="finished"; room.current_player=null; room.winner=winner;
+  }
+  render();
+  handleGameAudioAndEvents(room);
+}
+
+let autoNextBusy=false;
+let testMode=false;
+async function watchAutoNext(){
+  if(autoNextBusy || !room) return;
+  if(room.phase==="finished" || room.current_player || !room.match_deadline) return;
+  // Only advance a started match with remaining match time.
+  if(Date.now()>=Number(room.match_deadline)) return;
+  autoNextBusy=true;
+  try{ await startTurn(); } finally { autoNextBusy=false; }
+}
+setInterval(async()=>{
+  if(room && room.phase==="waiting" && !room.current_player &&
+     Number(room.match_deadline||0)>Date.now()){
+    await watchAutoNext();
+  }
+},700);
+
+function render(){
+  if(!room)return;
+  $("red").textContent=room.red_score||0;$("blue").textContent=room.blue_score||0;
+  const redScore=Number(room.red_score||0), blueScore=Number(room.blue_score||0);
+  const delta=redScore-blueScore;
+  // Positive delta means RED is ahead, so the knot moves toward RED (left).
+  const pull=Math.max(-140,Math.min(140,-delta*28));
+  $("knot").style.transform=`translateX(calc(-50% + ${pull}px))`;
+  const matchLeft=Math.max(0,Math.ceil((Number(room.match_deadline||0)-Date.now())/1000));
+  $("winner").textContent=room.winner
+    ? `🏆 ${String(room.winner).toUpperCase()} TEAM WINS!`
+    : "";
+  if($("matchTimer")) $("matchTimer").textContent =
+    room.match_deadline ? `MATCH TIME ${String(Math.floor(matchLeft/60)).padStart(2,"0")}:${String(matchLeft%60).padStart(2,"0")}` : "MATCH TIME --:--";
+  if($("matchState")) $("matchState").textContent =
+    room.phase==="finished" ? "🏁 MATCH FINISHED" : room.match_deadline ? "🔥 MATCH IN PROGRESS" : "READY TO START";
+  $("winner").className=room.winner ? "winner show" : "winner";
+  $("ropeStatus").textContent = room.winner
+    ? "MATCH COMPLETE"
+    : (delta===0 ? "⚖️ EVEN" : delta>0 ? `🔴 RED PULLS +${delta} ←` : `→ 🔵 BLUE PULLS +${Math.abs(delta)}`);
+  let q=room.question;
+  const qText=q?.question_text || q?.question || q?.text || q?.prompt || "";
+  $("question").textContent=qText || "Waiting for host…";
+  $("answers").innerHTML="";
+  const selectedId=me?.id ? String(me.id) : String($("playerSelect")?.value||"");
+  const myPlayer = selectedId ? players.find(p=>String(p.id)===selectedId) : null;
+  const isCurrent = !!(myPlayer && String(room.current_player)===String(myPlayer.id));
+  $("debug").textContent = `DEBUG: selected=${selectedId||"none"} · current=${room.current_player||"none"} · status=${myPlayer?.status||"none"}`;
+  if(myPlayer && isCurrent && myPlayer.status==="active") {
+    if(Date.now()<Number(room.deadline||0)) setMsg("playerMsg","🟢 YOUR TURN — answer now!","ok");
+    else setMsg("playerMsg","⏱ YOUR TURN — TIME EXPIRED","err");
+  } else if(myPlayer) {
+    const active=players.find(p=>String(p.id)===String(room.current_player));
+    setMsg("playerMsg",active?`Waiting for turn: ${active.name}`:"Waiting for host…");
+  }
+  const opts=Array.isArray(room.options)?room.options:[];
+  opts.forEach((a,i)=>{
+    const b=document.createElement("button");b.className="answer";b.textContent=a;b.dataset.i=i;
+    const currentPlayerForUI = players.find(p=>String(p.id)===String(room.current_player));
+    const myPlayer = testMode ? currentPlayerForUI :
+      (me ? players.find(p=>String(p.id)===String(me.id)) : null);
+    // UI clickability is based on the authoritative room turn/deadline.
+    // Player status can briefly lag behind realtime updates; answer() still
+    // validates current_player and deadline server-side before submitting.
+    const myTurn = !!(myPlayer && String(room.current_player)===String(myPlayer.id) &&
+      Number(room.deadline||0) > Date.now());
+    b.disabled=!myTurn;
+    b.style.opacity=myTurn?"1":"0.45";
+    b.style.filter=myTurn?"none":"brightness(.55)";
+    b.style.cursor=myTurn?"pointer":"not-allowed";
+    b.onclick=()=>answer(i);
+    $("answers").appendChild(b);
+  });
+  let cp=players.find(p=>p.id===room.current_player);
+  $("current").textContent=cp?`${cp.name} · ${String(cp.team).toUpperCase()}`:"No active player";
+  const identityPlayer = me?.id ? players.find(p=>String(p.id)===String(me.id)) : null;
+  $("identity").textContent=identityPlayer
+    ? `You are: ${identityPlayer.name} · ${String(identityPlayer.team).toUpperCase()} · Queue #${identityPlayer.queue_no}${String(room.current_player)===String(identityPlayer.id) && identityPlayer.status==="active"?" · 🟢 YOUR TURN":""}`
+    : "Select a player to test.";
+  $("winner").textContent=room.winner?`🏆 ${String(room.winner).toUpperCase()} WINS!`:"";
+  $("redPlayers").innerHTML=players.filter(p=>p.team==="red").map(p=>`<div class="p">${escapeHtml(p.queue_no)}. ${escapeHtml(p.name)} ${p.status==="active"?"— ACTIVE":""}</div>`).join("");
+  $("bluePlayers").innerHTML=players.filter(p=>p.team==="blue").map(p=>`<div class="p">${escapeHtml(p.queue_no)}. ${escapeHtml(p.name)} ${p.status==="active"?"— ACTIVE":""}</div>`).join("");
+  startTimer();
+}
+function tickMatchTimer(){
+  const el=document.getElementById("matchTimer");
+  if(!el) return;
+  const end=Number(room?.match_deadline||0);
+  if(!end){ el.textContent="MATCH TIME --:--"; return; }
+  const left=Math.max(0,Math.ceil((end-Date.now())/1000));
+  el.textContent=`MATCH TIME ${String(Math.floor(left/60)).padStart(2,"0")}:${String(left%60).padStart(2,"0")}`;
+}
+setInterval(tickMatchTimer,1000);
+
+function startTimer(){
+  clearInterval(timerHandle);
+  if(!room?.deadline){$("timer").textContent="00:00";return}
+  let expiredHandled=false;
+  timerHandle=setInterval(async()=>{
+    const sec=Math.max(0,Math.ceil((Number(room.deadline)-Date.now())/1000));
+    const mm=Math.floor(sec/60), ss=sec%60;
+    $("timer").textContent=`${String(mm).padStart(2,"0")}:${String(ss).padStart(2,"0")}`;
+    if(sec===0 && !expiredHandled){
+      expiredHandled=true;
+      clearInterval(timerHandle);
+      $("timer").textContent="00:00";
+      await expireCurrentTurn();
+    }
+  },100);
+}
+
+async function expireCurrentTurn(){
+  const currentId=room?.current_player ? String(room.current_player) : "";
+  if(!currentId || room?.phase!=="question") return false;
+
+  const {data:r,error:re}=await sb.from("math_rooms")
+    .select("*").eq("code",roomCode).single();
+  if(re || !r || r.phase!=="question" || String(r.current_player)!==currentId) return false;
+  if(Date.now()<Number(r.deadline||0)) return false;
+
+  // End the turn first. The room update is the authoritative transition,
+  // so timeout does not depend on which player is selected in this browser.
+  const {error:re2}=await sb.from("math_rooms").update({
+    phase:"waiting",current_player:null,question:null,options:[],deadline:0
+  }).eq("code",roomCode).eq("phase","question").eq("current_player",currentId);
+  if(re2){
+    setMsg("hostMsg","TIME EXPIRED update failed: "+re2.message,"err");
+    return false;
+  }
+
+  // Mark the player as finished for this round; failure here must not block
+  // the room transition or auto-next.
+  await sb.from("math_players").update({
+    status:"finished",last_result:"expired"
+  }).eq("id",currentId);
+
+  await load();
+
+  // Show timeout AFTER load(), because render() can otherwise overwrite the
+  // message. The normal auto-next watcher is the single mechanism that starts
+  // the next player, preventing a second timeout-driven turn race.
+  setMsg("hostMsg","⏱ TIME EXPIRED — turn ended","err");
+  setMsg("playerMsg","⏱ TIME EXPIRED — turn ended","err");
+  const rb=$("resultBanner");
+  if(rb){
+    rb.textContent="⏱ TIME EXPIRED";
+    rb.className="status err";
+    rb.style.fontSize="clamp(28px,7vw,56px)";
+    rb.style.fontWeight="900";
+    rb.style.textAlign="center";
+    rb.style.padding="18px 8px";
+    rb.style.opacity="1";
+  }
+  return true;
+}
+
+async function startTurn(){
+  if($("eventOverlay")) $("eventOverlay").classList.remove("show");
+  const durationEl=document.getElementById("gameDuration");
+  const durationSec=Number(durationEl?.value||180);
+  await load();
+  if(room.phase==="finished"){setMsg("hostMsg","Game finished. Press RESET GAME to play again.","err");return;}
+  // The first START sets the match duration. Subsequent NEXT TURN keeps the same deadline.
+  if(!room.match_started_at){
+    const matchEnd=Date.now()+durationSec*1000;
+    const {error:me}=await sb.from("math_rooms").update({
+      match_started_at:new Date().toISOString(),
+      match_deadline:matchEnd,
+      match_duration:durationSec
+    }).eq("code",roomCode);
+    if(me){setMsg("hostMsg","Match timer failed: "+me.message,"err");return;}
+    room.match_deadline=matchEnd;
+  }
+
+  await load();
+  if(!room){setMsg("hostMsg","Room not found.","err");return}
+
+  const ordered=players.slice().sort((a,b)=>Number(a.queue_no)-Number(b.queue_no));
+  if(!ordered.length){setMsg("hostMsg","No players in this room.","err");return}
+
+  const allFinished=ordered.every(p=>p.status==="finished");
+  if(allFinished){
+    await sb.from("math_players").update({status:"waiting"}).eq("room_code",roomCode);
+    await load();
+  }
+
+  const currentIndex=room.current_player
+    ? ordered.findIndex(p=>String(p.id)===String(room.current_player))
+    : -1;
+
+  // Pick the next WAITING player, not simply queue #1. After an answer or
+  // timeout current_player is cleared, so using index 0 here caused the same
+  // player to receive another turn. When everyone has finished, start a new
+  // round by resetting statuses and begin again from queue #1.
+  let next=null;
+  if(currentIndex>=0){
+    for(let step=1;step<=ordered.length;step++){
+      const candidate=ordered[(currentIndex+step)%ordered.length];
+      if(candidate.status==="waiting"){ next=candidate; break; }
+    }
+  }else{
+    next=ordered.find(p=>p.status==="waiting")||null;
+  }
+
+  if(!next){
+    await sb.from("math_players").update({status:"waiting"}).eq("room_code",roomCode);
+    await load();
+    const refreshed=players.slice().sort((a,b)=>Number(a.queue_no)-Number(b.queue_no));
+    next=refreshed[0]||null;
+  }
+  if(!next){setMsg("hostMsg","No available player.","err");return;}
+
+  const {data:q,error:qe}=await sb.from("math_questions").select("*").limit(100);
+  if(qe){setMsg("hostMsg","Question read failed: "+qe.message,"err");return}
+  if(!q?.length){setMsg("hostMsg","No questions found.","err");return}
+  const picked=q[Math.floor(Math.random()*q.length)];
+  const answerValue=Number(picked.answer);
+  // math_questions stores only the correct answer, so create 3 distinct distractors here.
+  const candidates=new Set();
+  const offsets=[1,-1,2,-2,3,-3,5,-5,10,-10];
+  for(const d of offsets){ const v=answerValue+d; if(v!==answerValue) candidates.add(v); }
+  const wrongValues=[...candidates].sort(()=>Math.random()-.5).slice(0,3);
+  const questionText=picked.question_text || picked.question || picked.text || picked.prompt || "";
+  const questionObj={...picked,answer:answerValue,question_text:questionText};
+  const shuffled=[answerValue,...wrongValues].sort(()=>Math.random()-.5);
+
+  const {error:pe}=await sb.from("math_players")
+    .update({status:"active",turn_count:Number(next.turn_count||0)+1})
+    .eq("id",next.id);
+  if(pe){setMsg("hostMsg","Player update failed: "+pe.message,"err");return}
+
+  const {error:re}=await sb.from("math_rooms").update({
+    phase:"question",current_player:next.id,question:questionObj,options:shuffled,deadline:Math.min(Date.now()+10000, Number(room.match_deadline||Date.now()+10000))
+  }).eq("code",roomCode);
+
+  if(re){setMsg("hostMsg","Room update failed: "+re.message,"err");return}
+  setMsg("hostMsg",`Turn started: ${next.name} · ${String(next.team).toUpperCase()} · #${next.queue_no}`,"ok");
+  await load();
+}
+
+
+async function answer(i){
+  const debug=$("debug");
+  const banner=$("resultBanner");
+  const fail=(m)=>{debug.textContent="DEBUG: "+m;debug.className="status err"; if(banner)banner.textContent="";};
+  const ok=(m)=>{debug.textContent="DEBUG: "+m;debug.className="status ok"; if(banner){banner.textContent=m;banner.className="status "+(m.includes("CORRECT")?"ok":"err");}};
+  const effectiveId = testMode && room?.current_player ? String(room.current_player) : (me?.id ? String(me.id) : "");
+  if(!effectiveId){fail("No player selected. Use SELECTED PLAYER first.");return;}
+
+  const {data:r,error:re}=await sb.from("math_rooms").select("*").eq("code",roomCode).single();
+  if(re){fail("Room read failed: "+re.message);return;}
+  const my=players.find(x=>String(x.id)===effectiveId);
+  if(!my){fail("Selected player was not found in this room.");return;}
+  if(String(r.current_player)!==String(my.id)){fail("Not your turn.");return;}
+  if(Date.now()>=Number(r.deadline||0)){fail("Time expired.");await load();return;}
+
+  const opts=Array.isArray(r.options)?r.options:[];
+  if(i<0 || i>=opts.length){fail("Invalid answer option.");return;}
+  const selected=Number(opts[i]);
+
+  document.querySelectorAll("#answers .answer").forEach(b=>b.disabled=true);
+  ok(`Submitting ${selected} · ${my.name} · ${String(my.team).toUpperCase()} …`);
+
+  // Deterministic scoring: the selected player's team is the source of truth.
+  // This avoids a stale SQL RPC assigning a point to the opposite team.
+  const correct=Number(r.question?.answer)===selected;
+  const team=String(my.team||"").toLowerCase();
+  if(team!=="red" && team!=="blue"){fail("Invalid player team: "+my.team);await load();return;}
+
+  const {error:ue}=await sb.from("math_players").update({
+    status:"finished",
+    last_result:correct?"correct":"wrong",
+    score:Number(my.score||0)+(correct?1:0),
+    correct_answers:Number(my.correct_answers||0)+(correct?1:0),
+    wrong_answers:Number(my.wrong_answers||0)+(correct?0:1)
+  }).eq("id",my.id);
+  if(ue){fail("SUBMIT FAILED: "+ue.message);await load();return;}
+
+  // Write BOTH team scores explicitly from the authoritative room snapshot.
+  // This prevents an old trigger/RPC-side assumption from assigning Nadya's
+  // RED point to BLUE.
+  const redScore=Number(r.red_score||0);
+  const blueScore=Number(r.blue_score||0);
+  const nextRed=correct && team==="red" ? redScore+1 : redScore;
+  const nextBlue=correct && team==="blue" ? blueScore+1 : blueScore;
+
+  const {error:re2}=await sb.from("math_rooms").update({
+    red_score:nextRed,
+    blue_score:nextBlue,
+    phase:"waiting",current_player:null,question:null,options:[],deadline:0
+  }).eq("code",roomCode).eq("current_player",my.id);
+
+  if(re2){fail("ROOM UPDATE FAILED: "+re2.message);await load();return;}
+
+  const msg=correct
+    ? `✓ CORRECT — ${team.toUpperCase()} +1 POINT`
+    : "✕ WRONG ANSWER — 0 POINT";
+
+  await load();
+  ok(msg);
+  setMsg("playerMsg",msg,correct?"ok":"err");
+  const rb=$("resultBanner");
+  if(rb){
+    rb.textContent=msg;
+    rb.className="status "+(correct?"ok":"err");
+    rb.style.fontSize="clamp(28px,7vw,56px)";
+    rb.style.fontWeight="900";
+    rb.style.textAlign="center";
+    rb.style.padding="18px 8px";
+    rb.style.opacity="1";
+  }
+
+  // Give the point/rope animation a moment, then automatically start next turn.
+  setTimeout(async()=>{
+    await load();
+    if(room && room.phase!=="finished" && !room.current_player){
+      await startTurn();
+    }
+  },1200);
+}
+
+function useSelected(){
+  const id=$("playerSelect").value;
+  if(!id){setMsg("playerMsg","Select a player first.","err");return}
+  const p=players.find(x=>String(x.id)===String(id));
+  if(!p){setMsg("playerMsg","Player not found.","err");return}
+  me={id:p.id,room_code:roomCode};
+  localStorage.setItem("pullwin_player",JSON.stringify({id:p.id,room:roomCode}));
+  setMsg("playerMsg",`Using ${p.name} · ${String(p.team).toUpperCase()}`,"ok");
+  render();
+}
+async function join(){
+  const name=$("playerName").value.trim();if(!name){setMsg("playerMsg","Enter your name.","err");return}
+  const {count:r}=await sb.from("math_players").select("*",{count:"exact",head:true}).eq("room_code",roomCode).eq("team","red");
+  const {count:b}=await sb.from("math_players").select("*",{count:"exact",head:true}).eq("room_code",roomCode).eq("team","blue");
+  const team=(r||0)<(b||0)?"red":"blue";
+  const qn=(players.length?Math.max(...players.map(x=>Number(x.queue_no)||0)):0)+1;
+  const {data,error}=await sb.from("math_players").insert({room_code:roomCode,name,team,queue_no:qn,status:"waiting",score:0,correct_answers:0,wrong_answers:0,turn_count:0}).select().single();
+  if(error){setMsg("playerMsg",error.message,"err");return}
+  me=data;localStorage.setItem("pullwin_player",JSON.stringify({id:data.id,room:roomCode}));
+  setMsg("playerMsg",`Joined ${team.toUpperCase()} team • Queue #${qn}`,"ok");await load();
+}
+async function testNadyaTurn(){
+  testMode=true;
+  await load();
+  const nadya=players.find(p=>p.name.toLowerCase()==="nadya");
+  if(!nadya){setMsg("hostMsg","Nadya not found.","err");return;}
+  const {data:q,error:qe}=await sb.from("math_questions").select("*").limit(100);
+  if(qe||!q?.length){setMsg("hostMsg","Question read failed: "+(qe?.message||"No questions found"),"err");return;}
+  const picked=q[Math.floor(Math.random()*q.length)];
+  const answerValue=Number(picked.answer);
+  const candidates=new Set();
+  for(const d of [1,-1,2,-2,3,-3,5,-5,10,-10]) candidates.add(answerValue+d);
+  const wrongValues=[...candidates].sort(()=>Math.random()-.5).slice(0,3);
+  const questionObj={...picked,answer:answerValue,question_text:picked.question_text||picked.question||picked.text||picked.prompt||""};
+  const options=[answerValue,...wrongValues].sort(()=>Math.random()-.5);
+  const {error:pe}=await sb.from("math_players").update({status:"active"}).eq("id",nadya.id);
+  if(pe){setMsg("hostMsg","Nadya update failed: "+pe.message,"err");return;}
+  const {error:re}=await sb.from("math_rooms").update({
+    phase:"question",current_player:nadya.id,question:questionObj,options,deadline:Math.min(Date.now()+10000, Number(room.match_deadline||Date.now()+10000))
+  }).eq("code",roomCode);
+  if(re){setMsg("hostMsg","Room update failed: "+re.message,"err");return;}
+  setMsg("hostMsg",`🧪 TEST TURN: ${nadya.name} · ${String(nadya.team).toUpperCase()} is active for testing.`,"ok");
+  await load();
+}
+
+async function startFreshMatch(){
+  await reset();
+  await startTurn();
+}
+
+async function reset(){
+  testMode=false;
+  clearTimeout(overlayTimer);
+  clearInterval(timerHandle);
+  if($("eventOverlay")) $("eventOverlay").classList.remove("show");
+  previousScores=null;
+  previousWinner=null;
+  if($("eventOverlay")) $("eventOverlay").classList.remove("show");
+  previousScores=null;
+  previousWinner=null;
+  room={...(room||{}),phase:"waiting",current_player:null,deadline:0,question:null,options:[],
+    red_score:0,blue_score:0,winner:null,match_started_at:null,match_deadline:null,match_duration:null};
+  const {error:pe}=await sb.from("math_players").update({
+    status:"waiting",score:0,correct_answers:0,wrong_answers:0,last_result:null,turn_count:0
+  }).eq("room_code",roomCode);
+  const {error:re}=await sb.from("math_rooms").update({
+    phase:"waiting",current_player:null,question:null,options:[],deadline:0,
+    red_score:0,blue_score:0,winner:null,
+    phase:"waiting",current_player:null,deadline:0,question:null,options:[],
+    match_started_at:null,match_deadline:null,match_duration:null
+  }).eq("code",roomCode);
+  clearInterval(timerHandle);
+  if(pe||re){setMsg("hostMsg","Reset failed: "+(pe?.message||re?.message),"err");return}
+  setMsg("hostMsg","Game reset.","ok");
+  await load();
+}
+
+
+function tab(which){
+  ["hostView","playerView","obsView"].forEach(x=>$(x).classList.add("hidden"));
+  $(which+"View").classList.remove("hidden");
+  ["hostTab","playerTab","obsTab"].forEach(x=>$(x).classList.remove("active"));
+  $(which+"Tab").classList.add("active");
+}
+$("hostTab").onclick=()=>tab("host");$("playerTab").onclick=()=>tab("player");$("obsTab").onclick=()=>tab("obs");
+
+$("soundBtn")?.addEventListener("click",()=>{
+  soundEnabled=!soundEnabled;
+  if(soundEnabled){
+    ensureAudio();
+    tone(880,.10,"sine",.045,0);
+    tone(1174.66,.12,"sine",.04,.08);
+  }
+  $("soundBtn").textContent=soundEnabled?"🔊 SOUND ON":"🔇 SOUND OFF";
+});
+
+$("room").onchange=load;
+$("playerSelect").onchange=()=>{
+  const id=$("playerSelect").value;
+  const p=players.find(x=>String(x.id)===String(id));
+  if(p){
+    me={id:p.id,room_code:roomCode};
+    localStorage.setItem("pullwin_player",JSON.stringify({id:p.id,room:roomCode}));
+    setMsg("playerMsg",`Selected ${p.name} · ${String(p.team).toUpperCase()}`,"ok");
+    render();
+  }
+};$("startBtn").onclick=startTurn;$("testNadyaBtn").onclick=testNadyaTurn;$("resetBtn").onclick=reset;$("joinBtn").onclick=join;$("useBtn").onclick=useSelected;$("refreshBtn").onclick=load;
+// Realtime: listen to the two game tables without hard-coding the room filter.
+// The callback reloads the authoritative room state, so every screen stays in sync.
+sb.channel("pullwin-live")
+  .on("postgres_changes",{event:"*",schema:"public",table:"math_rooms"},payload=>{
+    const code=payload?.new?.code||payload?.old?.code;
+    if(code===roomCode) load();
+  })
+  .on("postgres_changes",{event:"*",schema:"public",table:"math_players"},payload=>{
+    const code=payload?.new?.room_code||payload?.old?.room_code;
+    if(code===roomCode) load();
+  })
+  .subscribe(status=>{
+    if(status==="SUBSCRIBED") $("conn").textContent="● Realtime Connected";
+  });
+load();
+</script>
+<script>window.startTurn=startTurn;window.reset=reset;window.join=join;window.useSelected=useSelected;window.load=load;</script>
+
+
+<script>
+window.addEventListener("DOMContentLoaded", function () {
+  const hostBtn = document.getElementById("startBtn");
+  const hostMsg = document.getElementById("hostMsg");
+  if (!hostBtn) return;
+
+  hostBtn.onclick = async function () {
+    hostBtn.disabled = true;
+    if (hostMsg) {
+      hostMsg.textContent = "🟡 HOST BUTTON CLICKED — running…";
+      hostMsg.className = "status";
+    }
+    try {
+      if (typeof startTurn !== "function") throw new Error("startTurn function is missing");
+      await startTurn();
+      if (hostMsg && !hostMsg.textContent) hostMsg.textContent = "🟢 START TURN FINISHED";
+    } catch (e) {
+      if (hostMsg) {
+        hostMsg.textContent = "🔴 HOST ERROR: " + (e?.message || e);
+        hostMsg.className = "status err";
+      }
+    } finally {
+      hostBtn.disabled = false;
+    }
+  };
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded",()=>{
+  const room=window.UNYU_ROOM;
+  const candidates=["roomCode","room","roomInput","code"];
+  for(const id of candidates){
+    const el=document.getElementById(id);
+    if(el && room){
+      el.value=room;
+      el.dispatchEvent(new Event("input",{bubbles:true}));
+      break;
+    }
+  }
+  document.title =
+    window.UNYU_MODE==="obs" ? "PULL & WIN — OBS" :
+    window.UNYU_MODE==="player" ? "PULL & WIN — PLAYER" :
+    "PULL & WIN — HOST";
+});
+</script>
+</body></html>
