@@ -751,6 +751,7 @@ window.addEventListener("DOMContentLoaded", function () {
 
 <script>
 document.addEventListener("DOMContentLoaded",()=>{
+  if (window.UNYU_MODE && ["host","player","obs"].includes(window.UNYU_MODE)) tab(window.UNYU_MODE);
   const room=window.UNYU_ROOM;
   const candidates=["roomCode","room","roomInput","code"];
   for(const id of candidates){
