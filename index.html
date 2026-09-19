@@ -515,79 +515,130 @@ async function startTurn(){
 }
 
 
+let answerBusy=false;
+
 async function answer(i){
+  if(answerBusy) return;
+  answerBusy=true;
+
   const debug=$("debug");
   const banner=$("resultBanner");
-  const fail=(m)=>{debug.textContent="DEBUG: "+m;debug.className="status err"; if(banner)banner.textContent="";};
-  const ok=(m)=>{debug.textContent="DEBUG: "+m;debug.className="status ok"; if(banner){banner.textContent=m;banner.className="status "+(m.includes("CORRECT")?"ok":"err");}};
-  const effectiveId = testMode && room?.current_player ? String(room.current_player) : (me?.id ? String(me.id) : "");
-  if(!effectiveId){fail("No player selected. Use SELECTED PLAYER first.");return;}
 
-  const {data:r,error:re}=await sb.from("math_rooms").select("*").eq("code",roomCode).single();
-  if(re){fail("Room read failed: "+re.message);return;}
-  const my=players.find(x=>String(x.id)===effectiveId);
-  if(!my){fail("Selected player was not found in this room.");return;}
-  if(String(r.current_player)!==String(my.id)){fail("Not your turn.");return;}
-  if(Date.now()>=Number(r.deadline||0)){fail("Time expired.");await load();return;}
+  const fail=(m)=>{
+    debug.textContent="DEBUG: "+m;
+    debug.className="status err";
+    if(banner) banner.textContent="";
+  };
 
-  const opts=Array.isArray(r.options)?r.options:[];
-  if(i<0 || i>=opts.length){fail("Invalid answer option.");return;}
-  const selected=Number(opts[i]);
+  const ok=(m)=>{
+    debug.textContent="DEBUG: "+m;
+    debug.className="status ok";
+    if(banner){
+      banner.textContent=m;
+      banner.className="status "+(m.includes("CORRECT")?"ok":"err");
+    }
+  };
 
-  document.querySelectorAll("#answers .answer").forEach(b=>b.disabled=true);
-  ok(`Submitting ${selected} · ${my.name} · ${String(my.team).toUpperCase()} …`);
+  try{
+    const effectiveId = testMode && room?.current_player
+      ? String(room.current_player)
+      : (me?.id ? String(me.id) : "");
 
-  // Deterministic scoring: the selected player's team is the source of truth.
-  // This avoids a stale SQL RPC assigning a point to the opposite team.
-  const correct=Number(r.question?.answer)===selected;
-  const team=String(my.team||"").toLowerCase();
-  if(team!=="red" && team!=="blue"){fail("Invalid player team: "+my.team);await load();return;}
+    if(!effectiveId){
+      fail("No player selected. Use SELECTED PLAYER first.");
+      return;
+    }
 
-  const {error:ue}=await sb.from("math_players").update({
-    status:"finished",
-    last_result:correct?"correct":"wrong",
-    score:Number(my.score||0)+(correct?1:0),
-    correct_answers:Number(my.correct_answers||0)+(correct?1:0),
-    wrong_answers:Number(my.wrong_answers||0)+(correct?0:1)
-  }).eq("id",my.id);
-  if(ue){fail("SUBMIT FAILED: "+ue.message);await load();return;}
+    const {data:r,error:re}=await sb.from("math_rooms")
+      .select("*")
+      .eq("code",roomCode)
+      .single();
 
-  // Write BOTH team scores explicitly from the authoritative room snapshot.
-  // This prevents an old trigger/RPC-side assumption from assigning Nadya's
-  // RED point to BLUE.
-  const redScore=Number(r.red_score||0);
-  const blueScore=Number(r.blue_score||0);
-  const nextRed=correct && team==="red" ? redScore+1 : redScore;
-  const nextBlue=correct && team==="blue" ? blueScore+1 : blueScore;
+    if(re){
+      fail("Room read failed: "+re.message);
+      return;
+    }
 
-  const {error:re2}=await sb.from("math_rooms").update({
-    red_score:nextRed,
-    blue_score:nextBlue,
-    phase:"waiting",current_player:null,question:null,options:[],deadline:0
-  }).eq("code",roomCode).eq("current_player",my.id);
+    const my=players.find(x=>String(x.id)===effectiveId);
 
-  if(re2){fail("ROOM UPDATE FAILED: "+re2.message);await load();return;}
+    if(!my){
+      fail("Selected player was not found in this room.");
+      return;
+    }
 
-  const msg=correct
-    ? `✓ CORRECT — ${team.toUpperCase()} +1 POINT`
-    : "✕ WRONG ANSWER — 0 POINT";
+    if(String(r.current_player)!==String(my.id)){
+      fail("Not your turn.");
+      return;
+    }
 
-  await load();
-  ok(msg);
-  setMsg("playerMsg",msg,correct?"ok":"err");
-  const rb=$("resultBanner");
-  if(rb){
-    rb.textContent=msg;
-    rb.className="status "+(correct?"ok":"err");
-    rb.style.fontSize="clamp(28px,7vw,56px)";
-    rb.style.fontWeight="900";
-    rb.style.textAlign="center";
-    rb.style.padding="18px 8px";
-    rb.style.opacity="1";
+    if(Date.now()>=Number(r.deadline||0)){
+      fail("Time expired.");
+      await load();
+      return;
+    }
+
+    const opts=Array.isArray(r.options)?r.options:[];
+
+    if(i<0 || i>=opts.length){
+      fail("Invalid answer option.");
+      return;
+    }
+
+    const selected=Number(opts[i]);
+
+    document.querySelectorAll("#answers .answer")
+      .forEach(b=>b.disabled=true);
+
+    ok(`Submitting ${selected} · ${my.name} · ${String(my.team).toUpperCase()} …`);
+
+    const {data:result,error:submitError}=await sb.rpc("submit_math_answer",{
+      p_room_code:roomCode,
+      p_player_id:my.id,
+      p_selected:selected
+    });
+
+    if(submitError){
+      const msg=submitError.message||"Submit failed";
+
+      if(/TIME_EXPIRED|NOT_YOUR_TURN|PLAYER_NOT_ACTIVE|NO_ACTIVE_QUESTION/i.test(msg)){
+        fail(msg);
+        await load();
+        return;
+      }
+
+      fail("SUBMIT FAILED: "+msg);
+      await load();
+      return;
+    }
+
+    const correct=!!result?.correct;
+    const team=String(result?.team||my.team||"").toLowerCase();
+
+    const msg=correct
+      ? `✓ CORRECT — ${team.toUpperCase()} +1 POINT`
+      : "✕ WRONG ANSWER — 0 POINT";
+
+    await load();
+
+    ok(msg);
+    setMsg("playerMsg",msg,correct?"ok":"err");
+
+    const rb=$("resultBanner");
+
+    if(rb){
+      rb.textContent=msg;
+      rb.className="status "+(correct?"ok":"err");
+      rb.style.fontSize="clamp(28px,7vw,56px)";
+      rb.style.fontWeight="900";
+      rb.style.textAlign="center";
+      rb.style.padding="18px 8px";
+      rb.style.opacity="1";
+    }
+
+  }finally{
+    answerBusy=false;
   }
-
-}
-
+       }
 function useSelected(){
   const id=$("playerSelect").value;
   if(!id){setMsg("playerMsg","Select a player first.","err");return}
