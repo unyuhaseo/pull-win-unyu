@@ -586,13 +586,6 @@ async function answer(i){
     rb.style.opacity="1";
   }
 
-  // Give the point/rope animation a moment, then automatically start next turn.
-  setTimeout(async()=>{
-    await load();
-    if(room && room.phase!=="finished" && !room.current_player){
-      await startTurn();
-    }
-  },1200);
 }
 
 function useSelected(){
