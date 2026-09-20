@@ -368,21 +368,51 @@ function tickMatchTimer(){
 }
 setInterval(tickMatchTimer,1000);
 
+let timerKey="";
+
 function startTimer(){
+  const deadline=Number(room?.deadline||0);
+  const currentId=String(room?.current_player||"");
+  const key=`${deadline}|${currentId}`;
+
+  if(!deadline){
+    clearInterval(timerHandle);
+    timerHandle=null;
+    timerKey="";
+    $("timer").textContent="00:00";
+    return;
+  }
+
+  if(timerHandle && timerKey===key) return;
+
   clearInterval(timerHandle);
-  if(!room?.deadline){$("timer").textContent="00:00";return}
+  timerKey=key;
+
   let expiredHandled=false;
-  timerHandle=setInterval(async()=>{
-    const sec=Math.max(0,Math.ceil((Number(room.deadline)-Date.now())/1000));
-    const mm=Math.floor(sec/60), ss=sec%60;
-    $("timer").textContent=`${String(mm).padStart(2,"0")}:${String(ss).padStart(2,"0")}`;
+
+  const tick=async()=>{
+    const sec=Math.max(
+      0,
+      Math.ceil((Number(room?.deadline||0)-Date.now())/1000)
+    );
+
+    const mm=Math.floor(sec/60);
+    const ss=sec%60;
+
+    $("timer").textContent=
+      `${String(mm).padStart(2,"0")}:${String(ss).padStart(2,"0")}`;
+
     if(sec===0 && !expiredHandled){
       expiredHandled=true;
       clearInterval(timerHandle);
+      timerHandle=null;
       $("timer").textContent="00:00";
       await expireCurrentTurn();
     }
-  },100);
+  };
+
+  tick();
+  timerHandle=setInterval(tick,100);
 }
 
 async function expireCurrentTurn(){
