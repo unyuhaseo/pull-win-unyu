@@ -519,8 +519,15 @@ async function startTurn(){
   const {data:q,error:qe}=await sb.from("math_questions").select("*").limit(100);
   if(qe){setMsg("hostMsg","Question read failed: "+qe.message,"err");return}
   if(!q?.length){setMsg("hostMsg","No questions found.","err");return}
-  const picked=q[Math.floor(Math.random()*q.length)];
-  const answerValue=Number(picked.answer);
+  const used=new Set(Array.isArray(room.used_questions)?room.used_questions.map(String):[]);
+let available=q.filter(x=>!used.has(String(x.id))&&!used.has(String(x.number)));
+if(!available.length){
+  available=q;
+  await sb.from("math_rooms").update({used_questions:[]}).eq("code",roomCode);
+  room.used_questions=[];
+}
+const picked=available[Math.floor(Math.random()*available.length)];
+const answerValue=Number(picked.answer);
   // math_questions stores only the correct answer, so create 3 distinct distractors here.
   const candidates=new Set();
   const offsets=[1,-1,2,-2,3,-3,5,-5,10,-10];
@@ -534,9 +541,11 @@ async function startTurn(){
     .update({status:"active",turn_count:Number(next.turn_count||0)+1})
     .eq("id",next.id);
   if(pe){setMsg("hostMsg","Player update failed: "+pe.message,"err");return}
-
+const nextUsed=[...(Array.isArray(room.used_questions)?room.used_questions:[]),String(picked.id)];
   const {error:re}=await sb.from("math_rooms").update({
-    phase:"question",current_player:next.id,question:questionObj,options:shuffled,deadline:Math.min(Date.now()+10000, Number(room.match_deadline||Date.now()+10000))
+    phase:"question",current_player:next.id,question:questionObj,options:shuffled,deadline:Math.min(Date.now()+10000, Number(room.match_deadline||Date.now()+10000)),
+    used_questions:nextUsed
+  
   }).eq("code",roomCode);
 
   if(re){setMsg("hostMsg","Room update failed: "+re.message,"err");return}
