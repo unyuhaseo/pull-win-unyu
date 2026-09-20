@@ -306,12 +306,7 @@ try{
   autoNextBusy=false;
 }
 }
-setInterval(async()=>{
-  if(room && room.phase==="waiting" && !room.current_player &&
-     Number(room.match_deadline||0)>Date.now()){
-    await watchAutoNext();
-  }
-},700);
+
 
 function render(){
   if(!room)return;
