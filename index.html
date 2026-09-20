@@ -285,7 +285,26 @@ async function watchAutoNext(){
   // Only advance a started match with remaining match time.
   if(Date.now()>=Number(room.match_deadline)) return;
   autoNextBusy=true;
-  try{ await startTurn(); } finally { autoNextBusy=false; }
+try{
+  const {data:result,error}=await sb.rpc("start_math_turn",{
+    p_room_code:roomCode
+  });
+  if(error){
+    setMsg("hostMsg","Auto-next failed: "+error.message,"err");
+    return;
+  }
+  if(result?.started){
+    setMsg("hostMsg",
+      `Turn started: ${result.player_name} · ${String(result.team).toUpperCase()} · #${result.queue_no}`,
+      "ok"
+    );
+    await load();
+  }else{
+    await load();
+  }
+}finally{
+  autoNextBusy=false;
+}
 }
 setInterval(async()=>{
   if(room && room.phase==="waiting" && !room.current_player &&
